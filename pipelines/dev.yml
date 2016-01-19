@@ -1,68 +1,45 @@
 ---
 jobs:
-- name: job-hello-world
+- name: test-bump-tag
   public: true
   plan:
-  - get: resource-tutorial
-  - get: dev-version-s3
-  - get: dev-semver-s3
-    params: 
-        bump: patch
-        pre: dev
-  - task: hello-world
+
+  - get: concourse-promote-test
+
+  - task: example-thing-that-does-work
     config:
+      inputs:
+        - name: concourse-promote-test
       platform: linux
       image: docker:///busybox
       run:
-        path: echo
-        args: [hello world]
-  - task: get-git-version
-    config:
-      platform: linux
-      image: docker:///debian
-      inputs: 
-        - name: resource-tutorial
-        - name: dev-version-s3
-      outputs:
-        - name: dev-version-file
-      run:
-        path: sh
-        args:
-        - -e
-        - -c
-        - |
-          echo 'cant be bothered to wait for apt'  > ../dev-version-file/file
-          # apt-get update
-          # apt-get install git -y
-          # cd resource-tutorial
-          # git log --format='%H' -1 > ../dev-version-file/file
-  - put: dev-version-s3
+        path: find
+        args: [..]
+
+  - put: concourse-promote-versions
+    params: 
+      bump: patch
+      pre: staging
+
+  - put: concourse-promote-test
     params:
-      file: dev-version-file/file
-  - put: dev-semver-s3
-    params:
-      file: dev-version-s3/number
-  - put: resource-tutorial
-    params:
-      repository: resource-tutorial
-      tag: dev-version-s3/number
+      repository: concourse-promote-test
+      tag: concourse-promote-versions/number
       only_tag: true
 
 resources:
-- name: resource-tutorial
+- name: concourse-promote-test
   type: git
   source:
-    uri: https://github.com/timmow/concourse-promote-spike.git
+    uri: git@github.com:jonty/concourse-promote-test.git
+    branch: master
     private_key: {{private_key}}
       
-- name: dev-version-s3
-  type: git
+- name: concourse-promote-versions
+  type: semver
   source:
-    uri: https://github.com/timmow/concourse-promote-spike.git
-    private_key: {{private_key}}
-
-- name: dev-semver-s3
-  type: git
-  source:
-    uri: https://github.com/timmow/concourse-promote-spike.git
+    driver: git
+    uri: git@github.com:jonty/concourse-promote-versions.git
+    branch: master
+    file: staging_version
     private_key: {{private_key}}
