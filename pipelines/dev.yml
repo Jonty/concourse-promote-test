@@ -1,10 +1,11 @@
 ---
 jobs:
-- name: test-bump-tag
+- name: test-and-bump-tag
   public: true
   plan:
 
   - get: concourse-promote-test
+    trigger: true
 
   - task: example-thing-that-does-work
     config:
@@ -16,16 +17,44 @@ jobs:
         path: find
         args: [..]
 
-  - put: concourse-promote-versions
+  - get: concourse-promote-versions
     params: 
       bump: patch
       pre: staging
 
+  # Note that concourse-promote-versions/number is NOT THE SAME as the filename
+  # defined in the resource - it's named differently when operating locally
   - put: concourse-promote-test
     params:
       repository: concourse-promote-test
       tag: concourse-promote-versions/number
       only_tag: true
+
+  # We push the version after the git update to prevent triggering the next
+  # pipeline before the git tags has been pushed
+  - put: concourse-promote-versions
+    params: 
+      file: concourse-promote-versions/number
+
+
+- name: trigger-on-new-tagging
+  public: true
+  plan:
+  - get: concourse-promote-versions
+    trigger: true
+
+  - get: concourse-promote-test
+
+  - task: example-thing-that-claims-success
+    config:
+      inputs:
+        - name: concourse-promote-test
+      platform: linux
+      image: docker:///busybox
+      run:
+        path: echo
+        args: ["Great success!"]
+
 
 resources:
 - name: concourse-promote-test
